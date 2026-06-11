@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="day">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Little Super Claws — A living, AI-built world hidden across Dublin</title>
+<meta name="description" content="LittleSuperClaws.ie is a living, AI-agent-built website. Explore a splatted 3D Dublin, type any location, find the Little Super Claws, drop yourself into the scene, and hunt real 3D-printed figures across the city." />
+<meta property="og:title" content="Little Super Claws — hidden across Dublin" />
+<meta property="og:description" content="A living world that AI agents rebuild around the clock. Explore Dublin, find the crew, join the lineup, and chase the treasure hunt." />
+<meta property="og:image" content="assets/crew-lineup.jpg" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦞</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ===== Announcement ===== -->
+<div class="ticker-bar" id="top">
+  <div class="ticker-track" aria-hidden="false">
+    <span><i class="dot"></i> LIVE — World Orchestrator is rebuilding Dublin right now</span>
+    <span>🦞 New scene generated: <b>Temple Bar</b> · 11 seconds ago</span>
+    <span>📍 Trending location: <b>Ha'penny Bridge</b></span>
+    <span>🎟️ Treasure figure spotted in a Camden Street café</span>
+    <span><i class="dot"></i> LIVE — World Orchestrator is rebuilding Dublin right now</span>
+    <span>🦞 New scene generated: <b>Temple Bar</b> · 11 seconds ago</span>
+    <span>📍 Trending location: <b>Ha'penny Bridge</b></span>
+    <span>🎟️ Treasure figure spotted in a Camden Street café</span>
+  </div>
+</div>
+
+<!-- ===== Nav ===== -->
+<header class="nav" id="nav">
+  <a href="#top" class="brand" aria-label="Little Super Claws home">
+    <span class="brand-badge">🦞</span>
+    <span class="brand-text">Little Super<span> Claws</span></span>
+  </a>
+  <nav class="nav-links" id="navLinks">
+    <a href="#explore">Explore</a>
+    <a href="#crew">The Crew</a>
+    <a href="#lineup">Join In</a>
+    <a href="#hunt">Treasure Hunt</a>
+    <a href="#agents">AI Agents</a>
+    <a href="#shop">Shop</a>
+  </nav>
+  <div class="nav-actions">
+    <div class="mode-toggle" id="modeToggle" role="group" aria-label="Time of day">
+      <button data-mode="day" class="is-active" title="Day">☀</button>
+      <button data-mode="evening" title="Evening">◑</button>
+      <button data-mode="night" title="Night">☾</button>
+    </div>
+    <a href="#talk" class="btn btn-primary btn-sm">Talk to a Claw</a>
+    <button class="hamburger" id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="hero" id="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-grid">
+    <div class="hero-copy reveal">
+      <div class="eyebrow"><i class="dot"></i> A living website · rebuilt by AI agents</div>
+      <h1>The Little Super Claws are <span class="grad">hidden across Dublin.</span></h1>
+      <p class="lede">Explore a splatted 3D city that never sits still. Type any Dublin location and watch our agents conjure a magical scene — then find the crew, drop yourself in, and share the magic.</p>
+
+      <form class="searchbar" id="searchForm" autocomplete="off">
+        <span class="search-pin">📍</span>
+        <input id="searchInput" type="text" placeholder="Type any Dublin location… Temple Bar, Croke Park, the Spire" aria-label="Dublin location" />
+        <button class="btn btn-primary" type="submit">Generate scene</button>
+      </form>
+      <div class="chips" id="quickChips">
+        <button>Temple Bar</button>
+        <button>Grafton Street</button>
+        <button>Lighthouse Cinema</button>
+        <button>Croke Park</button>
+        <button>St Stephen's Green</button>
+      </div>
+
+      <div class="hero-cta">
+        <a href="#explore" class="btn btn-ghost">Explore the splatted city</a>
+        <a href="#lineup" class="link-arrow">Upload your photo &amp; join the lineup →</a>
+      </div>
+    </div>
+
+    <div class="hero-visual reveal">
+      <div class="stage">
+        <div class="portal portal-1"></div>
+        <div class="portal portal-2"></div>
+        <img src="assets/crew-lineup.jpg" alt="The Little Super Claws crew on a Dublin cobblestone street at dusk" />
+        <div class="float-pill p1">📍 Temple Bar</div>
+        <div class="float-pill p2">📍 Grafton St</div>
+        <div class="float-pill p3">📍 The Spire</div>
+      </div>
+      <div class="agent-badge">
+        <div class="ab-pulse"></div>
+        <div>
+          <strong id="abTitle">Scene Builder</strong>
+          <span id="abStatus">generating Dublin worlds…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Explore them</span><i>✦</i><span>Find them</span><i>✦</i><span>Join them</span><i>✦</i><span>Share them</span><i>✦</i>
+      <span>Explore them</span><i>✦</i><span>Find them</span><i>✦</i><span>Join them</span><i>✦</i><span>Share them</span><i>✦</i>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Core experiences ===== -->
+<section class="section" id="experiences">
+  <div class="section-head reveal">
+    <span class="kicker">The world</span>
+    <h2>Eight ways into the magic</h2>
+    <p>Every visit is different. The site is never static — a team of AI agents continuously rebuilds, refreshes and evolves Dublin around the crew.</p>
+  </div>
+  <div class="feature-grid" id="featureGrid"></div>
+</section>
+
+<!-- ===== Explore — live WebGL splatted Dublin ===== -->
+<section class="world" id="explore">
+  <canvas id="cityCanvas" aria-label="Interactive 3D splatted Dublin"></canvas>
+  <div class="world-grain"></div>
+  <div class="world-overlay">
+    <div class="world-copy reveal">
+      <span class="kicker">Explore a splatted Dublin · live in your browser</span>
+      <h2>Step into a 3D city that never stops rebuilding</h2>
+      <p>A real Gaussian-splat world generated by World Labs Marble, streamed live into your browser. Drag to look around, then step through a glowing portal into a location.</p>
+      <div class="mini-modes world-modes">
+        <button data-mode="day">☀ Morning</button>
+        <button data-mode="evening">◑ Evening</button>
+        <button data-mode="night">☾ Night</button>
+        <button data-mode="rain">🌧 Rain</button>
+        <button id="spawnCrewBtn">🦞 Place crew here</button>
+      </div>
+      <div class="media-tag world-tag">World Labs Marble · Spark · Three.js · Gaussian Splats</div>
+    </div>
+  </div>
+  <div class="world-portals" id="worldPortals"></div>
+  <div class="world-hint" id="worldHint">🖱️ Drag to look around</div>
+  <noscript><img src="assets/scene-explore.png" alt="Explore a changing Dublin" class="world-fallback-img" /></noscript>
+  <div class="world-fallback" id="worldFallback" hidden>
+    <img src="assets/scene-explore.png" alt="Explore a changing Dublin — magical portals to Dublin locations" />
+  </div>
+</section>
+
+<!-- ===== Meet the crew ===== -->
+<section class="section" id="crew">
+  <div class="section-head reveal">
+    <span class="kicker">Meet the crew</span>
+    <h2>Five little legends with very big claws</h2>
+    <p>The world's first fully agentic comedy cast. Each one is driven by its own character agent — with a personality, a voice and a story that keeps growing.</p>
+  </div>
+  <div class="crew-grid" id="crewGrid"></div>
+</section>
+
+<!-- ===== Join the lineup ===== -->
+<section class="section split reverse" id="lineup">
+  <div class="split-media reveal">
+    <div class="lineup-demo">
+      <div class="lineup-before">
+        <span class="lbl">You</span>
+        <div class="avatar-you">🙂</div>
+      </div>
+      <div class="lineup-arrow">→</div>
+      <div class="lineup-after">
+        <span class="lbl">In the world</span>
+        <img src="assets/crew-lineup.jpg" alt="You, dropped into the Little Super Claws lineup" />
+      </div>
+    </div>
+    <div class="share-row">
+      <span>Share your adventure</span>
+      <a class="share whatsapp" href="#" aria-label="Share on WhatsApp">WhatsApp</a>
+      <a class="share email" href="#" aria-label="Share by email">Email</a>
+      <a class="share dl" href="#" aria-label="Download">Download</a>
+    </div>
+  </div>
+  <div class="split-copy reveal">
+    <span class="kicker">Join the lineup</span>
+    <h2>Upload your photo. Stand with the crew.</h2>
+    <p>The Selfie Composite agent places you right inside the scene — beside Clawd, Decklan, Deirdre, Gerald and Nessa. Get a poster, a selfie, a team lineup or a scene card back in seconds.</p>
+    <ul class="ticklist">
+      <li>Poster · Selfie · Team lineup · Scene card</li>
+      <li>One-tap share to WhatsApp &amp; Email</li>
+      <li>Big smiles, easy sharing — every result saved to your gallery</li>
+    </ul>
+    <a href="#" class="btn btn-primary">Upload your photo</a>
+  </div>
+</section>
+
+<!-- ===== Treasure hunt ===== -->
+<section class="section hunt" id="hunt">
+  <div class="hunt-inner">
+    <div class="hunt-copy reveal">
+      <span class="kicker gold">Treasure hunt + prizes</span>
+      <h2>Real 3D-printed Claws are hidden across the city</h2>
+      <p>Find the little figures tucked into bars, cafés, cinemas, parks and venues around Dublin. Scan the QR to unlock a clue, a story and real-world prizes.</p>
+      <div class="hunt-steps">
+        <div class="hstep"><span>1</span><div><b>Find them</b><br>Spot a figure in the wild</div></div>
+        <div class="hstep"><span>2</span><div><b>Scan to play</b><br>QR unlocks the next clue</div></div>
+        <div class="hstep"><span>3</span><div><b>Win prizes</b><br>Stories, points &amp; rewards</div></div>
+      </div>
+      <div class="venue-row">
+        <span>🍺 Bars</span><span>☕ Cafés</span><span>🎬 Cinemas</span><span>🌳 Parks</span><span>🎤 Venues</span>
+      </div>
+    </div>
+    <div class="hunt-card reveal">
+      <div class="qr">
+        <div class="qr-grid" id="qrGrid"></div>
+      </div>
+      <p class="qr-cap">Scan to unlock the magic</p>
+      <div class="found-badge">FOUND A SUPERCLAW!</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== AI agents live panel ===== -->
+<section class="section" id="agents">
+  <div class="section-head reveal">
+    <span class="kicker">Under the hood</span>
+    <h2>A team of AI agents, always on shift</h2>
+    <p>The site feels alive because it is. A fleet of orchestrated agents resolves locations, generates worlds, voices the cast and curates the gallery — around the clock.</p>
+  </div>
+  <div class="agents-panel reveal">
+    <div class="ap-col">
+      <div class="ap-head"><span>AI Agents</span><span class="live"><i class="dot"></i> Live · building</span></div>
+      <div class="agent-list" id="agentList"></div>
+    </div>
+    <div class="ap-col">
+      <div class="ap-head"><span>Live requests</span><span class="muted">from the world</span></div>
+      <div class="req-list" id="reqList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Social / gallery ===== -->
+<section class="section" id="gallery">
+  <div class="section-head reveal">
+    <span class="kicker">The social layer</span>
+    <h2>Watch, scroll and share the world</h2>
+    <p>Fresh scenes, community uploads and full episodes — the crew lives on YouTube and Instagram too.</p>
+  </div>
+  <div class="gallery-grid reveal">
+    <figure class="g-tall"><img src="assets/scene-magic.png" alt="Magical Dublin scene"><figcaption>Little superpowers in Dublin's magic</figcaption></figure>
+    <figure><img src="assets/scene-pub.png" alt="Cosy Dublin pub scene with the crew"><figcaption>A cosy night in a Dublin snug</figcaption></figure>
+    <figure><img src="assets/crew-lineup.jpg" alt="The crew lineup"><figcaption>The full crew, on the cobbles</figcaption></figure>
+    <figure class="g-cta">
+      <div>
+        <span>▶</span>
+        <b>The world's first fully agentic comedy series</b>
+        <a href="#" class="link-arrow">Watch on YouTube →</a>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- ===== Shop / merch ===== -->
+<section class="section split" id="shop">
+  <div class="split-media reveal">
+    <img src="assets/scene-pub.png" alt="Little Super Claws figures and merchandise" />
+    <div class="media-tag">Image → Meshy → Cleanup → Export → GLB · STL · USDZ</div>
+  </div>
+  <div class="split-copy reveal">
+    <span class="kicker">Shop &amp; Claw Blast</span>
+    <h2>Take a Claw home — or print your own</h2>
+    <p>The Merch agent turns scenes into real, 3D-printed figures and collectibles. Powered by Claw Blast: our pipeline that spins images into printable GLB, STL and USDZ assets.</p>
+    <ul class="ticklist">
+      <li>Collectible 3D-printed figures of the crew</li>
+      <li>Posters &amp; scene cards from your own uploads</li>
+      <li>Downloadable 3D models for makers</li>
+    </ul>
+    <div class="hero-cta">
+      <a href="#" class="btn btn-primary">Visit the shop</a>
+      <a href="#" class="link-arrow">Learn about Claw Blast →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Partner stack ===== -->
+<section class="partners" id="partners">
+  <p class="kicker center">Built with world-class technology</p>
+  <div class="partner-row">
+    <span>World Labs</span><i>·</i><span>NVIDIA</span><i>·</i><span>Runway</span><i>·</i><span>ElevenLabs</span><i>·</i><span>Meshy</span><i>·</i><span>Gaussian Splats</span>
+  </div>
+</section>
+
+<!-- ===== Final CTA ===== -->
+<section class="cta" id="talk">
+  <div class="cta-glow"></div>
+  <div class="reveal">
+    <h2>The Little Super Claws are hidden across Dublin.</h2>
+    <p class="cta-sub"><span class="grad">Explore</span> them. <span class="grad">Find</span> them. <span class="grad">Join</span> them. <span class="grad">Share</span> them.</p>
+    <form class="newsletter" id="newsletter">
+      <input type="email" placeholder="your@email.ie" aria-label="Email" required />
+      <button class="btn btn-primary" type="submit">Get on the list</button>
+    </form>
+    <p class="cta-note" id="newsletterNote">Be first to find a figure, unlock a hunt and meet the crew.</p>
+  </div>
+</section>
+
+<!-- ===== Footer ===== -->
+<footer class="footer">
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <a href="#top" class="brand"><span class="brand-badge">🦞</span><span class="brand-text">Little Super<span> Claws</span></span></a>
+      <p>A living, AI-agent-built world hidden across Dublin. A Napkin production.</p>
+    </div>
+    <div><h4>Explore</h4><a href="#explore">Splatted Dublin</a><a href="#crew">The crew</a><a href="#gallery">Gallery</a></div>
+    <div><h4>Play</h4><a href="#lineup">Join the lineup</a><a href="#hunt">Treasure hunt</a><a href="#shop">Shop</a></div>
+    <div><h4>Follow</h4><a href="#">YouTube</a><a href="#">Instagram</a><a href="#">WhatsApp</a></div>
+  </div>
+  <div class="foot-bar">
+    <span>© <span id="year"></span> LittleSuperClaws.ie — in partnership with NVIDIA · Runway · ElevenLabs · World Labs</span>
+    <span>Made with magic in Dublin 🇮🇪</span>
+  </div>
+</footer>
+
+<!-- ===== Scene generation overlay ===== -->
+<div class="scene-modal" id="sceneModal" aria-hidden="true">
+  <div class="sm-card">
+    <button class="sm-close" id="smClose" aria-label="Close">✕</button>
+    <div class="sm-stage" id="smStage">
+      <div class="sm-portal"></div>
+      <img src="assets/crew-lineup.jpg" alt="Generated scene" id="smImg" />
+      <canvas id="smCanvas" tabindex="0" aria-label="Interactive generated world"></canvas>
+      <div class="sm-hud" id="smHud" hidden>🖱 Drag to look · scroll / WASD to walk</div>
+      <div class="sm-loc" id="smLoc">Temple Bar</div>
+    </div>
+    <div class="sm-log" id="smLog"></div>
+    <div class="sm-actions" id="smActions" hidden>
+      <button class="btn btn-primary btn-sm" id="smJoinScene">Join this scene</button>
+      <button class="btn btn-ghost btn-sm" id="smShare">Share</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/worlds-manifest.js"></script>
+<script src="js/worldlabs.js"></script>
+<script src="js/app.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"
+} }
+</script>
+<script type="module" src="js/splatcity.js"></script>
+<script type="module" src="js/splatviewer.js"></script>
+</body>
+</html>

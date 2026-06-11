@@ -1,0 +1,50 @@
+{
+  "temple-bar": {
+    "name": "Temple Bar",
+    "operation_id": "03c8af2a-8bb8-41e5-8933-aa8350a4d53a",
+    "world_id": "b0a0a660-7ff7-4ab5-bbea-cc61581d435a",
+    "status": "done"
+  },
+  "grafton-street": {
+    "name": "Grafton Street",
+    "operation_id": "1e8a0dcc-a793-4548-88f5-a7d8a7df956a",
+    "world_id": "56e9bdd6-4a36-48fb-bf69-93f473100006",
+    "status": "done"
+  },
+  "lighthouse-cinema": {
+    "name": "Lighthouse Cinema",
+    "operation_id": "7f8b1bfd-08c4-4176-a62b-54c88e7ff475",
+    "world_id": "a0568538-78eb-4c53-8f22-f6d735ca6a30",
+    "status": "done"
+  },
+  "croke-park": {
+    "name": "Croke Park",
+    "operation_id": "931f5ddc-3f25-4e73-89e7-afbdb22fed8a",
+    "world_id": "ffb7dd8a-fc2f-4c47-a50c-febec1e136be",
+    "status": "done"
+  },
+  "stephens-green": {
+    "name": "St Stephen's Green",
+    "operation_id": "957d1787-6cc8-4fe3-ae3e-04ba97954350",
+    "world_id": "b2b9e05f-5be9-4980-9605-729170787454",
+    "status": "done"
+  },
+  "hapenny-bridge": {
+    "name": "Ha'penny Bridge",
+    "operation_id": "621086a4-274a-4b27-9874-e2e98e828fa4",
+    "world_id": "179d5c5d-0c2e-46ac-af2d-76a1e76ad9b9",
+    "status": "done"
+  },
+  "the-spire": {
+    "name": "The Spire",
+    "operation_id": "ab1384cc-ff6e-472d-a850-150f04a84d31",
+    "world_id": "ca017000-6522-4db2-abd0-898e2d122265",
+    "status": "done"
+  },
+  "liffey-quays": {
+    "name": "Liffey Quays",
+    "operation_id": "b0db05be-f2c0-4fc7-9194-840051e10ff9",
+    "world_id": "ce336695-1b4e-4876-9bdb-ddf8161ffc74",
+    "status": "done"
+  }
+}
