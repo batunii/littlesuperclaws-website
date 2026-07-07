@@ -21,7 +21,9 @@ python -m http.server 8000
 ```
 
 > Needs internet on first load: Google Fonts + Three.js (pinned to
-> `three@0.160.0` via an import map). No build step, no `npm install`.
+> `three@0.180.0` via an import map) + Spark 2.1.0. No build step, no
+> `npm install`. The import map in `index.html` is the source of truth for
+> versions.
 
 ## What's inside
 
@@ -101,3 +103,98 @@ World Labs Marble API** (`api.worldlabs.ai/marble/v1`), rendered with
 Pipeline (per the architecture screenshot): character GLBs + **World Labs
 Marble environment** (`.spz` Gaussian splats + collider mesh) → **Spark ·
 Three.js · WebGL2** in the browser.
+
+## Real-time character shadows on the splat world
+
+The crew now casts **live shadows onto the Gaussian-splat world itself** —
+no shadow-catcher mesh, no baked tricks. Three modules power it:
+
+- `js/splat-shadows.js` — **the core technique.** The crew (and only the
+  crew — a dedicated `layers` bit) is rendered into a small depth map from
+  the sun's point of view through an ortho frustum auto-fitted to the
+  crew's bounding box (~2 mm/texel, texel-snapped so idle bob doesn't
+  shimmer), sampled with hardware-PCF `sampler2DShadow` + an 8-tap Poisson
+  penumbra, darkening occluded pixels toward an ambient "shadow floor"
+  tint in gamma-correct linear light. Two GPU paths
+  (`?lscShadowMode=fragment|splat`):
+  - **`fragment` (default) — pixel-sharp.** Spark's display fragment
+    shader is patched: each pixel's world position is reconstructed from
+    the interpolated NDC varying and shadow-tested, so edges slice
+    straight through large splats. Uniforms are plain material uniforms —
+    **no splat regeneration, no version bumps, no display lag**; only the
+    tiny depth-map render is gated (crew moved > 5 mm / sun / params).
+  - **`splat` — per-splat fallback** via a dyno `worldModifier` in the
+    generate pipeline (one test per splat centre; gated `updateVersion()`
+    refreshes, ~17/s during idle bob). Auto-selected if the display-shader
+    patch anchors are ever missing.
+  Shadows land on floors *and* walls with true parallax and move
+  instantly with the characters and the sun.
+- `js/world-lighting.js` — **automatic lighting estimation.** The Marble
+  pano (the only lighting data World Labs provides) is analysed once per
+  world: solid-angle-weighted luminance → dominant-light cluster (flood
+  fill with equirect seam wrap) → sun direction/colour/angular size, plus
+  an SH-L2 ambient fit → shadow strength/tint, and an LDR-clip boost for
+  blown-out suns. Overcast/indoor worlds are detected (low peakiness) and
+  get soft, faint, high-elevation shadows automatically. The estimate also
+  drives the crew's `DirectionalLight`, ambient, and `scene.environment`
+  (the pano as IBL) so character shading matches the world.
+- `js/sun-control.js` — **movable light.** The gold "SUN" pad
+  (bottom-right of the explore section and the scene modal): drag to swing
+  azimuth/elevation — shadows + character lighting follow live; ↺ resets
+  to the world's estimated lighting. User drags always win over estimates.
+
+Device tiers mirror `pickSplatUrl`: desktop = 2048² map, 9 PCF taps;
+coarse-pointer/low-memory = 1024², 5 taps; ≤2 GB devices skip the depth
+pass (contact-AO blobs — `SplatEdit` MULTIPLY ellipsoids planted at each
+figure's feet — still ground them on every tier). Override with
+`?lscShadowTier=off|mobile|desktop`.
+
+**Debug handles** (browser console):
+`__lscViewer._shadows().explore.setStrength(0.9)` / `.setPenumbraTexels(3)`
+/ `.setTint(r,g,b)` / `.showFrustumHelper(true)`;
+`__lscViewer._lighting()` for the raw estimate;
+`__lscViewer._preset('clay')` soft warm stop-motion · `_preset('crisp')`
+hard game-style sun · `_preset('world')` back to estimate-matched;
+`__lscViewer._lightDebug(true)` overlays the pano background + an arrow
+along the estimated sun — use it to fine-tune `PANO_CALIBRATION.yaw` in
+`world-lighting.js` on a sunny world (one constant for all Marble panos;
+ships with the convention used by our other Marble viewers).
+
+**Spark 2.1 gotchas baked into the code** (hard-won, don't regress):
+GLSL ES 3.0 gives `sampler2DShadow` **no default precision** — both paths
+inject `precision highp sampler2DShadow;` (the dyno path via a
+`DynoUniform` global, the display patch inline); in the generate pipeline,
+per-frame uniform changes only reach the GPU after `mesh.updateVersion()`
+and edits appear **one frame late** (double-buffered accumulator) —
+invisible at 60 fps but sample-after-two-renders when testing headlessly;
+splat `rgb` is sRGB-encoded outside `encodeLinear`, so linear-light
+factors are raised to `1/2.2` before the multiply; the display fragment
+patch anchors on `out vec4 fragColor;` / `#ifdef PREMULTIPLIED_ALPHA` /
+`in vec3 vNdc;` in Spark's `splatFragment` — re-check those anchors when
+bumping the pinned Spark version (the code falls back to per-splat mode
+automatically if they vanish).
+
+⚠️ **Prime the shadow map or the whole world goes black.** WebGL2 validates
+every bound sampler at draw time — even inside a branch that never runs
+(shadows off / no crew). The patched splat shader always binds the crew
+`DepthTexture` as a `sampler2DShadow`; until that depth target has been
+rendered to once it is *incomplete*, so **every splat draw throws
+`GL_INVALID_OPERATION` (1282) and is dropped → a completely black scene with
+no JS error**. `SplatScene._primeShadowMap()` (called in `loadWorld` right
+after `shadowRig.attach`) does one bare `setRenderTarget + clear` to complete
+the texture. Don't remove it. Signature when diagnosing: `gl.getError() === 1282`
+straight after `renderer.render(...)`.
+
+> **Known gap:** `SplatScene._placeCrew()` is defined but not wired, so the
+> crew don't auto-appear in a generated world yet (they're placed in `#explore`
+> via the "Place crew here" button). See `CLAUDE.md` for the full agent notes.
+
+**Porting notes:** `splat-shadows.js` + `world-lighting.js` are
+framework-free ES modules. The image-blaster R3F app can wrap them
+(`useFrame` → `rig.frame(...)`, seed its cast-store sun from the estimate;
+it must toggle `shadowMap.autoUpdate` around the depth pass since that app
+also runs three's shadow pipeline, and needs one TS cast for Spark's
+`texture()` coord-type declaration quirk). In a game engine the same
+technique applies directly — sample a character-only shadow map in the
+splat shader (Unreal splat plugins already do this; 3DGRUT / Chaos Vantage
+give the ray-traced version for offline/native).
