@@ -493,3 +493,23 @@ html[data-mode="rain"] .rain-layer{display:block}
 @media(prefers-reduced-motion:reduce){
   *{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}
 }
+
+/* ===== Sun pad — movable light for the splat worlds ===== */
+.sun-pad{position:absolute;right:1.2rem;bottom:1.1rem;width:96px;height:96px;z-index:5;
+  border-radius:14px;background:color-mix(in srgb,var(--card) 82%,transparent);
+  border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(6px);
+  cursor:grab;touch-action:none;user-select:none;pointer-events:auto;
+  opacity:0;visibility:hidden;transition:opacity .35s}
+.sun-pad.on{opacity:1;visibility:visible}
+.sun-pad:active{cursor:grabbing}
+.sun-pad-grid{position:absolute;inset:8px;border-radius:10px;opacity:.55;pointer-events:none;
+  background:linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:20px 20px}
+.sun-pad-dot{position:absolute;width:13px;height:13px;margin:-6.5px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 10px var(--gold);pointer-events:none}
+.sun-pad-label{position:absolute;left:9px;top:6px;font-size:9px;font-weight:700;
+  letter-spacing:.14em;color:var(--ink-soft);pointer-events:none}
+.sun-pad-reset{position:absolute;right:3px;top:3px;width:22px;height:22px;border:0;
+  border-radius:8px;background:transparent;color:var(--ink-soft);cursor:pointer;
+  font-size:13px;line-height:1;padding:0}
+.sun-pad-reset:hover{color:var(--ink);background:var(--line)}

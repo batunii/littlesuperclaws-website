@@ -116,5 +116,10 @@
   const colliderUrl = (world) =>
     (world && world.assets && world.assets.mesh && world.assets.mesh.collider_mesh_url) || null;
 
-  window.LSC_WL = { resolveWorldId, getWorld, generateWorld, pickSplatUrl, colliderUrl, norm };
+  /* Equirect pano — the world's only lighting evidence (used for
+     light estimation + character IBL by splatviewer/world-lighting). */
+  const panoUrl = (world) =>
+    (world && world.assets && world.assets.imagery && world.assets.imagery.pano_url) || null;
+
+  window.LSC_WL = { resolveWorldId, getWorld, generateWorld, pickSplatUrl, colliderUrl, panoUrl, norm };
 })();

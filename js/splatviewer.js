@@ -12,9 +12,23 @@
    ============================================================ */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
+import {
+  SparkRenderer, SplatMesh,
+  SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode,
+} from '@sparkjsdev/spark';
+import { ShadowRig, pickShadowTier, CHARACTER_SHADOW_LAYER } from './splat-shadows.js';
+import { estimateWorldLighting, loadPanoTexture, panoEnvRotation, azElToDir } from './world-lighting.js';
+import { createSunControl } from './sun-control.js';
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Default sun ≈ the site's original fixed light at (3, 6, 2). */
+const DEFAULT_SUN = {
+  azimuth: Math.atan2(3, 2),          // ~0.983
+  elevation: Math.asin(6 / 7),        // ~1.030
+  intensity: 1.6,
+  color: 0xffe2b8,
+};
 
 /* ---- The canon crew: GLB figures placed in every world ---- */
 const CREW_MODELS = [
@@ -45,21 +59,52 @@ function loadCrewModel(file) {
    with the crew standing in it. Used by the modal and #explore.
    ============================================================ */
 class SplatScene {
-  constructor(canvas, { autoDrift = false } = {}) {
+  constructor(canvas, { autoDrift = false, sunPadHost = null } = {}) {
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 600);
     this.camera.position.set(0, 0, 0);
+
+    // shadow rig first: 'fragment' mode patches the SparkRenderer's display
+    // shader at startup for pixel-sharp shadows (see splat-shadows.js)
+    this.shadowTier = pickShadowTier();
+    this.shadowRig = this.shadowTier.mapSize > 0
+      ? new ShadowRig(this.renderer, this.scene, this.shadowTier)
+      : null;
+
     this.spark = new SparkRenderer({ renderer: this.renderer });
     this.scene.add(this.spark);
+    this.shadowRig?.attachDisplay(this.spark);
 
-    // lights for the GLB figures (splats are unlit)
-    this.scene.add(new THREE.AmbientLight(0xfff2e0, 1.1));
-    const sun = new THREE.DirectionalLight(0xffe2b8, 1.6);
-    sun.position.set(3, 6, 2);
-    this.scene.add(sun);
+    // lights for the GLB figures (splats are unlit; the shadow rig +
+    // world-lighting estimate drive these so crew shading matches the world)
+    this.ambient = new THREE.AmbientLight(0xfff2e0, 1.1);
+    this.scene.add(this.ambient);
+    this.sunLight = new THREE.DirectionalLight(DEFAULT_SUN.color, DEFAULT_SUN.intensity);
+    this.sunLight.position.set(3, 6, 2);
+    this.scene.add(this.sunLight);
+
+    // movable sun + real-time splat shadows (see splat-shadows.js)
+    this.sunState = {
+      azimuth: DEFAULT_SUN.azimuth,
+      elevation: DEFAULT_SUN.elevation,
+      intensity: DEFAULT_SUN.intensity,
+      color: new THREE.Color(DEFAULT_SUN.color),
+      source: 'default', // 'default' | 'estimated' | 'user'
+    };
+    this.aoEdit = null;         // SplatEdit holding per-character contact-AO SDFs
+    this.worldLighting = null;  // last estimate from world-lighting.js
+    this.stylePreset = 'world'; // 'world' (match estimate) | 'clay' (soft stop-motion)
+    this.panoUrl = null;
+    this.sunPad = sunPadHost
+      ? createSunControl(sunPadHost, {
+          get: () => this.sunState,
+          set: (az, el) => this.setSun(az, el, 'user'),
+          reset: () => this.resetSunToWorld(),
+        })
+      : null;
 
     this.world = null;          // SplatMesh
     this.collider = null;       // invisible mesh for floor raycasts
@@ -148,7 +193,210 @@ class SplatScene {
         this.collider = col;
       } catch { /* floor fallback below */ }
     }
+
+    // real-time splat shadows: crew depth pass → per-pixel darkening
+    // ('fragment' mode is already patched in; attach() also wires the
+    // per-splat fallback mode's worldModifier when active)
+    this.shadowRig?.attach(mesh);
+    // Prime the crew shadow map so the patched splat display shader always
+    // samples a COMPLETE sampler2DShadow. WebGL2 validates every bound
+    // sampler at draw time even when the shader branch that reads it is
+    // skipped (shadows off / no crew yet) — an unrendered depth target is
+    // incomplete → GL_INVALID_OPERATION → the whole splat draw is dropped
+    // → completely black world. The depth pass in frame() only runs once
+    // crew exist, so without this the world stays black until then. One
+    // bare clear allocates + completes the depth texture.
+    this._primeShadowMap();
+    this._ensureAoEdit();
+    this._applySun();
+    this.sunPad?.show(true);
+    this.sunPad?.sync();
+
+    // estimate the world's lighting from its pano (async, never blocks
+    // the reveal; guarded so a stale estimate can't touch a newer world)
+    this.panoUrl = wl.panoUrl ? wl.panoUrl(world) : null;
+    if (this.panoUrl) {
+      const wid = this.worldId;
+      const pUrl = this.panoUrl;
+      const kick = () => {
+        estimateWorldLighting(pUrl, wid || pUrl).then((est) => {
+          if (!est || this.disposed || this.worldId !== wid) return;
+          this.worldLighting = est;
+          this._applyWorldLighting(est);
+          return loadPanoTexture(pUrl).then((tex) => {
+            if (this.disposed || this.worldId !== wid) return;
+            this.scene.environment = tex;
+            this.scene.environmentRotation.copy(panoEnvRotation());
+            this.scene.environmentIntensity = 1.1;
+          });
+        }).catch(() => {});
+      };
+      if ('requestIdleCallback' in window) requestIdleCallback(kick, { timeout: 2000 });
+      else setTimeout(kick, 50);
+    }
     return mesh;
+  }
+
+  /* ---- sun + world-lighting plumbing (shadows live in splat-shadows.js) ---- */
+
+  _applySun() {
+    const s = this.sunState;
+    const dir = azElToDir(s.azimuth, s.elevation);
+    this.sunLight.position.copy(dir).multiplyScalar(8);
+    this.sunLight.color.copy(s.color);
+    this.sunLight.intensity = s.intensity;
+    this.shadowRig?.setSunDir(dir);
+    this._lightArrow?.setDirection(dir);
+  }
+
+  setSun(azimuth, elevation, source = 'user') {
+    this.sunState.azimuth = azimuth;
+    this.sunState.elevation = elevation;
+    if (source) this.sunState.source = source;
+    this._applySun();
+    this.sunPad?.sync();
+  }
+
+  resetSunToWorld() {
+    this.sunState.source = 'default';
+    if (this.worldLighting) this._applyWorldLighting(this.worldLighting, true);
+    else {
+      this.sunState.azimuth = DEFAULT_SUN.azimuth;
+      this.sunState.elevation = DEFAULT_SUN.elevation;
+      this.sunState.intensity = DEFAULT_SUN.intensity;
+      this.sunState.color.set(DEFAULT_SUN.color);
+      this._applySun();
+    }
+    this.sunPad?.sync();
+  }
+
+  _applyWorldLighting(est, force = false) {
+    if (!est) return;
+    if (!force && this.sunState.source === 'user') return; // never fight the user
+    const s = this.sunState;
+    s.azimuth = est.azimuth;
+    s.elevation = est.elevation;
+    s.intensity = est.sunIntensity;
+    s.color.copy(est.sunColor);
+    s.source = 'estimated';
+    this.ambient.color.copy(est.ambientColor);
+    this.ambient.intensity = 0.35; // env map carries most of the fill
+    if (this.shadowRig && this.stylePreset === 'world') {
+      this.shadowRig.setStrength(est.shadowStrength);
+      this.shadowRig.setPenumbraTexels(est.penumbraTexels);
+      this.shadowRig.setTint(est.shadowTint);
+    }
+    this._applySun();
+    this.sunPad?.sync();
+  }
+
+  /* 'world' = match the estimated lighting; 'clay' = soft warm
+     stop-motion-studio shadows; 'crisp' = hard game-style sun. */
+  setStylePreset(name) {
+    this.stylePreset = name;
+    if (!this.shadowRig) return;
+    if (name === 'clay') {
+      this.shadowRig.setStrength(0.6);
+      this.shadowRig.setPenumbraTexels(3);
+      this.shadowRig.setTint(0.45, 0.38, 0.33);
+    } else if (name === 'crisp') {
+      this.shadowRig.setStrength(0.9);
+      this.shadowRig.setPenumbraTexels(0.6);
+      this.shadowRig.setTint(0.15, 0.16, 0.2);
+    } else if (this.worldLighting) {
+      this.shadowRig.setStrength(this.worldLighting.shadowStrength);
+      this.shadowRig.setPenumbraTexels(this.worldLighting.penumbraTexels);
+      this.shadowRig.setTint(this.worldLighting.shadowTint);
+    } else {
+      this.shadowRig.setStrength(0.75);
+      this.shadowRig.setPenumbraTexels(1.2);
+      this.shadowRig.setTint(0.24, 0.26, 0.32);
+    }
+  }
+
+  /* One-time init of the crew depth target so its DepthTexture is a
+     complete sampler2DShadow before the patched splat shader ever samples
+     it (see the call site in loadWorld). A bare clear is enough; the depth
+     pass in frame() takes over once crew exist. No-op when the rig/RT is
+     absent (shadow tier 'off' → shader isn't patched, so no sampler to
+     complete). */
+  _primeShadowMap() {
+    const rt = this.shadowRig?.rt;
+    if (!rt) return;
+    const r = this.renderer;
+    const prevRT = r.getRenderTarget();
+    const prevAutoClear = r.autoClear;
+    r.setRenderTarget(rt);
+    r.clear(true, true, false);
+    r.setRenderTarget(prevRT);
+    r.autoClear = prevAutoClear;
+  }
+
+  /* ---- contact-AO: soft SplatEdit blobs planted under each figure ---- */
+
+  _ensureAoEdit() {
+    if (this.aoEdit) return;
+    this.aoEdit = new SplatEdit({
+      name: 'lsc-contact-ao',
+      rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY,
+      softEdge: 0.12,
+      sdfSmooth: 0,
+    });
+    this.scene.add(this.aoEdit);
+  }
+
+  _addCrewAo(entry) {
+    if (!this.aoEdit) return;
+    const footR = 0.30 * (entry.height || 0.75);
+    const sdf = new SplatEditSdf({
+      type: SplatEditSdfType.ELLIPSOID,
+      color: new THREE.Color(0.45, 0.44, 0.48),
+      opacity: 1,
+      radius: 0.02,
+    });
+    sdf.scale.set(footR * 1.1, 0.10, footR * 1.1);
+    // planted at the GROUND point (not the bobbing model) so the blob
+    // stays put and Spark doesn't re-apply edits every frame
+    sdf.position.set(entry.obj.position.x, entry.baseY + 0.02, entry.obj.position.z);
+    this.aoEdit.add(sdf);
+    entry.aoSdf = sdf;
+  }
+
+  _removeCrewAo(entry) {
+    if (entry.aoSdf) {
+      this.aoEdit?.remove(entry.aoSdf);
+      entry.aoSdf = null;
+    }
+  }
+
+  /* Debug: show the pano as the background + an arrow along the
+     estimated sun direction — used once to calibrate PANO_CALIBRATION. */
+  async lightDebug(on = true) {
+    if (on) {
+      if (this.panoUrl) {
+        try {
+          const tex = await loadPanoTexture(this.panoUrl);
+          this.scene.background = tex;
+          this.scene.backgroundRotation.copy(panoEnvRotation());
+        } catch { /* keep splat background */ }
+      }
+      if (!this._lightArrow) {
+        this._lightArrow = new THREE.ArrowHelper(
+          azElToDir(this.sunState.azimuth, this.sunState.elevation),
+          new THREE.Vector3(0, -0.6, -1.5), 1.4, 0xf2b23e, 0.25, 0.12);
+        this.scene.add(this._lightArrow);
+      }
+      this._lightArrow.setDirection(azElToDir(this.sunState.azimuth, this.sunState.elevation));
+      this.shadowRig?.showFrustumHelper(true);
+    } else {
+      this.scene.background = null;
+      if (this._lightArrow) {
+        this.scene.remove(this._lightArrow);
+        this._lightArrow.dispose();
+        this._lightArrow = null;
+      }
+      this.shadowRig?.showFrustumHelper(false);
+    }
   }
 
   _floorAt(x, z) {
@@ -183,6 +431,7 @@ class SplatScene {
         if (this.disposed || !this.world) return null;
         const obj = src.clone();
         const box = new THREE.Box3().setFromObject(obj);
+        obj.userData.lscBox = box.clone(); // raw local bounds for the shadow rig
         const size = box.getSize(new THREE.Vector3());
         const s = cm.height / Math.max(size.y, 1e-5);
         obj.scale.setScalar(s);
@@ -192,8 +441,11 @@ class SplatScene {
         obj.position.set(x, y, z);
         obj.lookAt(0, obj.position.y, stepBack); // face the camera
         obj.userData.spawn = this.t;
+        obj.traverse(o => o.layers.enable(CHARACTER_SHADOW_LAYER));
         this.scene.add(obj);
-        this.crew.push({ obj, baseY: y, phase: i * 1.3, height: cm.height });
+        const entry = { obj, baseY: y, phase: i * 1.3, height: cm.height };
+        this.crew.push(entry);
+        this._addCrewAo(entry);
         return obj;
       }).catch(() => null);
     });
@@ -215,10 +467,20 @@ class SplatScene {
 
   clearWorld() {
     this.worldId = null;
+    this.shadowRig?.detach();
     if (this.world) { this.scene.remove(this.world); this.world.dispose?.(); this.world = null; }
     if (this.collider) { this.scene.remove(this.collider); this.collider = null; }
-    this.crew.forEach(c => this.scene.remove(c.obj));
+    this.crew.forEach(c => { this._removeCrewAo(c); this.scene.remove(c.obj); });
     this.crew = [];
+    this.worldLighting = null;
+    this.panoUrl = null;
+    this.scene.environment = null;
+    this.scene.background = null;
+    this.ambient.color.set(0xfff2e0);
+    this.ambient.intensity = 1.1;
+    this.sunState.source = 'default';
+    this.resetSunToWorld();
+    this.sunPad?.show(false);
     this.pos.set(0, 0, 0);
     this.yaw = this.pitch = this.targetYaw = this.targetPitch = 0;
   }
@@ -262,6 +524,11 @@ class SplatScene {
         c.obj.rotation.y += Math.sin(this.t * 0.9 + c.phase) * 0.0012;
       });
 
+      // crew depth pass from the sun + shadow uniforms (depth render is
+      // gated internally: only re-runs when crew/sun/params actually moved;
+      // the camera matrix uniform updates every frame for free)
+      this.shadowRig?.frame(this.crew.map(c => c.obj), this.camera);
+
       this.renderer.render(this.scene, this.camera);
     };
     tick();
@@ -271,7 +538,7 @@ class SplatScene {
      Called when the user presses the "Place crew here" button. */
   respawnCrew() {
     if (!this.world) return;
-    this.crew.forEach(c => this.scene.remove(c.obj));
+    this.crew.forEach(c => { this._removeCrewAo(c); this.scene.remove(c.obj); });
     this.crew = [];
 
     const N        = CREW_MODELS.length;
@@ -300,6 +567,7 @@ class SplatScene {
         if (this.disposed || !this.world) return null;
         const obj = src.clone();
         const box  = new THREE.Box3().setFromObject(obj);
+        obj.userData.lscBox = box.clone(); // raw local bounds for the shadow rig
         const size = box.getSize(new THREE.Vector3());
         const s    = cm.height / Math.max(size.y, 1e-5);
         obj.scale.setScalar(s);
@@ -309,8 +577,11 @@ class SplatScene {
         obj.position.set(x, y, z);
         obj.lookAt(camPos.x, obj.position.y, camPos.z); // face the camera
         obj.userData.spawn = this.t;
+        obj.traverse(o => o.layers.enable(CHARACTER_SHADOW_LAYER));
         this.scene.add(obj);
-        this.crew.push({ obj, baseY: y, phase: i * 1.3, height: cm.height });
+        const entry = { obj, baseY: y, phase: i * 1.3, height: cm.height };
+        this.crew.push(entry);
+        this._addCrewAo(entry);
         return obj;
       }).catch(() => null);
     });
@@ -332,7 +603,17 @@ class SplatScene {
   }
 
   stop() { this.running = false; cancelAnimationFrame(this.raf); }
-  dispose() { this.stop(); this.clearWorld(); this.disposed = true; this.renderer.dispose(); }
+  dispose() {
+    this.stop();
+    this.clearWorld();
+    this.disposed = true;
+    this.shadowRig?.dispose();
+    this.shadowRig = null;
+    if (this.aoEdit) { this.scene.remove(this.aoEdit); this.aoEdit = null; }
+    this.sunPad?.dispose();
+    this.sunPad = null;
+    this.renderer.dispose();
+  }
 }
 
 /* ============================================================
@@ -343,7 +624,12 @@ let modalScene = null;
 async function openWorld(world, locationName, onProgress) {
   const canvas = document.getElementById('smCanvas');
   if (!canvas) throw new Error('modal canvas missing');
-  if (!modalScene) modalScene = new SplatScene(canvas, { autoDrift: true });
+  if (!modalScene) {
+    modalScene = new SplatScene(canvas, {
+      autoDrift: true,
+      sunPadHost: document.getElementById('smStage') || undefined,
+    });
+  }
   modalScene.stop();
   await modalScene.loadWorld(world, { onProgress });
   canvas.classList.add('splat-ready');
@@ -406,7 +692,24 @@ function spawnCrewHere() {
   if (exploreView && !exploreView.disposed) exploreView.respawnCrew();
 }
 
-window.__lscViewer = { openWorld, closeModal, showInExplore, openLocationInExplore, spawnCrewHere, _debug: () => modalScene };
+window.__lscViewer = {
+  openWorld, closeModal, showInExplore, openLocationInExplore, spawnCrewHere,
+  _debug: () => modalScene,
+  _explore: () => exploreView,
+  _shadows: () => ({
+    modal: modalScene?.shadowRig ?? null,
+    explore: exploreView?.shadowRig ?? null,
+  }),
+  _lighting: () => ({
+    modal: modalScene?.worldLighting ?? null,
+    explore: exploreView?.worldLighting ?? null,
+  }),
+  /* calibration overlay: pano background + sun arrow + light frustum */
+  _lightDebug: (on = true, which = 'explore') =>
+    (which === 'modal' ? modalScene : exploreView)?.lightDebug(on),
+  _preset: (name = 'clay', which = 'explore') =>
+    (which === 'modal' ? modalScene : exploreView)?.setStylePreset(name),
+};
 
 /* ============================================================
    #explore — replace the procedural point cloud with the real
@@ -427,7 +730,10 @@ async function mountExplore() {
   let view;
   try {
     const world = await wl.getWorld(worldId);
-    view = new SplatScene(canvas, { autoDrift: true });
+    view = new SplatScene(canvas, {
+      autoDrift: true,
+      sunPadHost: document.getElementById('explore') || undefined,
+    });
     await view.loadWorld(world);
   } catch (e) {
     console.warn('[LSC] explore world failed, keeping point city:', e);
