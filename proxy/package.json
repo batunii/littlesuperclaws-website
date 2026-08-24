@@ -1,0 +1,15 @@
+{
+  "name": "lsc-worldlabs-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Keeps the World Labs Marble API key off the client.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "whoami": "wrangler whoami"
+  },
+  "devDependencies": {
+    "wrangler": "^4.125.0"
+  }
+}

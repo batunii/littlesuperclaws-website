@@ -1,10 +1,18 @@
 /* Little Super Claws — runtime config.
-   NOTE: the World Labs key is exposed client-side. Fine for a local demo;
-   for production, move these calls behind a tiny server-side proxy. */
+
+   No API keys here, ever.
+
+   The pregenerated Dublin worlds are served from worlds/ as plain static
+   files (see js/worlds-local.js + tools/vendor_worlds.py), so the public
+   site needs no credential and no backend.
+
+   `base` is only needed for the extras: worlds that were never vendored,
+   and live "type any location" generation. It points at the Cloudflare
+   Worker in proxy/, which holds the key server-side. Leave it null to run
+   fully static — free-typed locations then fall back to the postcard view. */
 window.LSC_CONFIG = {
   worldLabs: {
-    base: 'https://api.worldlabs.ai/marble/v1',
-    apiKey: 'BibKNrlcxUxqZHbnupi0JvpjX6wT62z8',
-    model: 'marble-1.1',
+    base: null,
+    // base: 'https://lsc-worldlabs-proxy.YOUR-SUBDOMAIN.workers.dev/marble/v1',
   },
 };

@@ -1,0 +1,26 @@
+name = "lsc-worldlabs-proxy"
+main = "src/worker.js"
+compatibility_date = "2025-05-01"
+
+[vars]
+# Comma-separated. Add your Pages origin and any custom domain.
+ALLOWED_ORIGINS = "https://littlesuperclaws.ie,https://www.littlesuperclaws.ie,https://batunii.github.io,http://localhost:8000"
+# Live world generation costs real money and takes ~5 min. Off by default:
+# the site still serves every pregenerated world in js/worlds-manifest.js.
+ALLOW_GENERATE = "false"
+MARBLE_MODEL = "marble-1.1"
+
+# WORLDLABS_API_KEY is a secret, never a var. See README.md.
+
+# Per-IP rate limits. namespace_id values just need to be distinct.
+[[unsafe.bindings]]
+name = "READ_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
+[[unsafe.bindings]]
+name = "GENERATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 2, period = 60 }

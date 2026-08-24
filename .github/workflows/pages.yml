@@ -1,0 +1,81 @@
+name: Deploy to GitHub Pages
+
+# Publishes only the site itself. proxy/, tools/ and reference/ stay in the
+# repo but never reach the public site — see the "Stage site files" step.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; let a newer push supersede an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage site files
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp index.html styles.css _site/
+          cp -r js assets models _site/
+          # Vendored Marble worlds, if tools/vendor_worlds.py has been run.
+          if [ -d worlds ]; then
+            cp -r worlds _site/
+          else
+            echo "no worlds/ yet — proxy or postcard fallback in use"
+          fi
+          # Skip the Jekyll build; nothing here needs it.
+          touch _site/.nojekyll
+          # Custom domain: uncomment once DNS points at GitHub Pages.
+          # echo 'littlesuperclaws.ie' > _site/CNAME
+          echo "Staged $(find _site -type f | wc -l) files, $(du -sh _site | cut -f1)"
+
+      - name: Refuse to publish credentials
+        run: |
+          set -euo pipefail
+          # -i matters: the leaked form was camelCase `apiKey:`.
+          # The World Labs key was committed once (3205c46). This is the
+          # backstop that stops it — or any successor — being served again.
+          if grep -rIniE "wlt-api-key|api[_-]?key['\"]?\s*[:=]\s*['\"][A-Za-z0-9_-]{16,}" \
+               _site --include='*.js' --include='*.html' --include='*.json' --include='*.css'; then
+            echo "::error::Credential-like string found in publish output — deploy blocked."
+            exit 1
+          fi
+          echo "No credentials in publish output."
+
+      - name: Check nothing private slipped in
+        run: |
+          set -euo pipefail
+          for p in proxy tools reference; do
+            if [ -e "_site/$p" ]; then
+              echo "::error::_site/$p must not be published."
+              exit 1
+            fi
+          done
+          echo "Private directories excluded."
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

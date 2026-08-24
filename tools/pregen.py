@@ -7,11 +7,15 @@ and writes:
   - worlds-manifest.js        (window.LSC_WORLDS for the site)
 Safe to re-run: already-completed slugs are skipped.
 """
-import json, os, re, sys, time, urllib.request, urllib.error
+import json, os, sys, time, urllib.request, urllib.error
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 API = "https://api.worldlabs.ai/marble/v1"
-KEY = re.search(r"(\S+)\s*$", open(os.path.join(ROOT, "WorldLabsAPI.txt")).read()).group(1)
+# Supplied by the environment, never stored in the repo. With Infisical:
+#   infisical run -- python tools/pregen.py
+KEY = os.environ.get("WORLDLABS_API_KEY")
+if not KEY:
+    sys.exit("WORLDLABS_API_KEY is not set. Try: infisical run -- python tools/pregen.py")
 STATE_PATH = os.path.join(ROOT, "tools", "pregen-state.json")
 MANIFEST_PATH = os.path.join(ROOT, "worlds-manifest.js")
 

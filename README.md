@@ -198,3 +198,39 @@ also runs three's shadow pipeline, and needs one TS cast for Spark's
 technique applies directly — sample a character-only shadow map in the
 splat shader (Unreal splat plugins already do this; 3DGRUT / Chaos Vantage
 give the ray-traced version for offline/native).
+
+---
+
+## Hosting (GitHub Pages)
+
+The site is static, so Pages serves it directly. `.github/workflows/pages.yml`
+publishes on every push to `main`.
+
+**One-time setup:** repo *Settings → Pages → Build and deployment → Source =
+**GitHub Actions***. (The default, "Deploy from a branch", would publish the
+whole repo including `proxy/` and `tools/`.)
+
+The workflow stages only `index.html`, `styles.css`, `js/`, `assets/` and
+`models/` (~129 MB, 29 files) into `_site`, then refuses to deploy if a
+credential-shaped string or a private directory made it in. `proxy/`, `tools/`
+and `reference/` stay in the repo but are never served.
+
+Live at `https://batunii.github.io/littlesuperclaws-website/`. For
+`littlesuperclaws.ie`, point DNS at Pages and uncomment the `CNAME` line in
+the workflow.
+
+**No API key is ever published.** There are two ways to serve worlds:
+
+1. **Vendored (default, fully static).** Run
+   `WORLDLABS_API_KEY=... python tools/vendor_worlds.py` once. It downloads
+   the 8 pregenerated worlds' splats, panos and colliders into `worlds/` and
+   writes `js/worlds-local.js`. From then on `getWorld()` builds the world
+   object from those same-origin files — no key, no proxy, no Cloudflare
+   account. This covers the `#explore` hero scene (`liffey-quays`) and every
+   crew portal.
+2. **Proxied (optional extra).** Set `worldLabs.base` in `js/config.js` to the
+   Worker in `proxy/`. Only needed for worlds that were never vendored and for
+   live "type any location" generation. See `proxy/README.md`.
+
+With neither configured the site still loads; free-typed locations fall back to
+the postcard view in the modal.

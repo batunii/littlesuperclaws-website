@@ -1,0 +1,22 @@
+# Secrets — never commit. Use Infisical (see proxy/README.md).
+tools/WorldLabsAPI.txt
+.env
+.env.*
+.dev.vars
+
+# Dependencies
+tools/node_modules/
+proxy/node_modules/
+
+# Playwright/debug scratch output from tools/
+tools/shot*.png
+tools/audit.jsonl
+tools/pregen-state.json
+.wrangler/
+
+# Python
+__pycache__/
+*.pyc
+
+# Partial downloads from tools/vendor_worlds.py
+*.part

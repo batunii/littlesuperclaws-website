@@ -1,14 +1,20 @@
 /* ============================================================
    Little Super Claws — worldlabs.js
-   Real World Labs (Marble) API client. Classic script, no deps.
+   World Labs (Marble) client. Classic script, no deps.
+   All calls go through the proxy Worker (see proxy/), which holds the
+   API key server-side — no credential is ever present in this file.
 
    Resolution order for a location query:
      1. pregenerated manifest (worlds-manifest.js → window.LSC_WORLDS)
      2. localStorage cache of previously live-generated worlds
      3. live generation via POST /worlds:generate (~5 min), then cached
 
-   Signed asset URLs expire, so we always re-fetch world details by
-   world ID right before viewing.
+   Asset delivery, in order:
+     a. worlds-local.js → same-origin files in worlds/, no key needed
+     b. the proxy Worker, which re-signs expiring URLs per view
+
+   With (a) alone the site is fully static and public; (b) is only needed
+   for worlds that were never vendored, and for live generation.
    ============================================================ */
 (function () {
   'use strict';
@@ -48,10 +54,10 @@
   }
 
   async function api(path, body) {
-    const { base, apiKey } = CFG();
+    const { base } = CFG();
     const res = await fetch(base + path, {
       method: body ? 'POST' : 'GET',
-      headers: { 'WLT-Api-Key': apiKey, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
@@ -63,23 +69,60 @@
     return res.json();
   }
 
-  const getWorld = (worldId) => api(`/worlds/${worldId}`);
+  /* ---- locally vendored worlds (tools/vendor_worlds.py) ----
+     If a world's assets sit in worlds/, we synthesise the same object shape
+     the API returns and never touch the network. This is what makes the
+     pregenerated worlds work on a plain static host with no API key. */
 
-  function buildPrompt(loc) {
-    return `Photorealistic street-level view of ${loc}, Dublin, Ireland: ` +
-      `authentic Dublin architecture and atmosphere, cobblestones or paving, warm window light, ` +
-      `moody Irish sky, golden hour, rich detail in every direction.`;
+  function localRecord(worldId) {
+    const local = window.LSC_WORLDS_LOCAL || {};
+    const manifest = window.LSC_WORLDS || {};
+    for (const slug of Object.keys(local)) {
+      const m = manifest[slug];
+      if (m && m.worldId === worldId) return local[slug];
+    }
+    return null;
+  }
+
+  /* Same shape as GET /worlds/{id}, so every consumer is unchanged. */
+  function synthWorld(worldId, rec) {
+    return {
+      id: worldId,
+      local: true,
+      assets: {
+        splats: { spz_urls: rec.spz_urls || {} },
+        mesh: rec.collider_mesh_url ? { collider_mesh_url: rec.collider_mesh_url } : {},
+        imagery: rec.pano_url ? { pano_url: rec.pano_url } : {},
+        thumbnail_url: rec.thumbnail_url || null,
+      },
+    };
+  }
+
+  const hasProxy = () => {
+    const b = CFG().base;
+    return !!b && !/YOUR-SUBDOMAIN/.test(b);
+  };
+
+  async function getWorld(worldId) {
+    const rec = localRecord(worldId);
+    if (rec) return synthWorld(worldId, rec);
+    if (!hasProxy()) {
+      throw new Error(
+        'This world is not vendored locally and no proxy is configured. ' +
+        'Run tools/vendor_worlds.py, or set worldLabs.base in js/config.js.');
+    }
+    return api(`/worlds/${worldId}`);
   }
 
   /* Live-generate a world for a location. onStatus(phase, detail) gets:
        'submitted' | 'progress' | 'done'   */
   async function generateWorld(loc, onStatus) {
-    const { model } = CFG();
-    const r = await api('/worlds:generate', {
-      display_name: `LSC - ${loc}`,
-      model: model || 'marble-1.1',
-      world_prompt: { type: 'text', text_prompt: buildPrompt(loc) },
-    });
+    if (!hasProxy()) {
+      throw new Error(
+        'Live world generation needs the proxy Worker (see proxy/README.md). ' +
+        'Only the pregenerated Dublin worlds are available on this deployment.');
+    }
+    const r = await api('/worlds:generate', { location: loc });
     onStatus && onStatus('submitted', r.operation_id);
 
     const started = Date.now();
